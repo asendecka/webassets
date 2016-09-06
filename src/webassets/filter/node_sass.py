@@ -94,7 +94,7 @@ class NodeSass(Sass):
                     print("node-sass filter has warnings:", stderr)
 
                 stdout.seek(0)
-                out.write(stdout.decode('utf-8'))
+                out.write(stdout.read().decode('utf-8'))
             finally:
                 if cd:
                     os.chdir(old_dir)
