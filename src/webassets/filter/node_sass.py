@@ -52,45 +52,52 @@ class NodeSass(Sass):
         # Switch to source file directory if asked, so that this directory
         # is by default on the load path. We could pass it via --include-paths, but then
         # files in the (undefined) wd could shadow the correct files.
+        from tempfile import TemporaryFile
+
         old_dir = os.getcwd()
         if cd:
             os.chdir(cd)
 
-        try:
-            args = [self.binary or 'node-sass',
-                    '--output-style', self.style or 'expanded']
+        with TemporaryFile() as stdin, TemporaryFile() as stdout, TemporaryFile() as stderr:
+            try:
+                args = [self.binary or 'node-sass',
+                        '--output-style', self.style or 'expanded']
 
-            if not self.use_scss:
-                args.append("--indented-syntax")
+                if not self.use_scss:
+                    args.append("--indented-syntax")
 
-            if (self.ctx.environment.debug if self.debug_info is None else self.debug_info):
-                args.append('--debug-info')
-            for path in self.load_paths or []:
-                args.extend(['--include-path', path])
+                if (self.ctx.environment.debug if self.debug_info is None else self.debug_info):
+                    args.append('--debug-info')
+                for path in self.load_paths or []:
+                    args.extend(['--include-path', path])
 
-            if (self.cli_args):
-                args.extend(self.cli_args)
+                if (self.cli_args):
+                    args.extend(self.cli_args)
 
-            proc = subprocess.Popen(args,
-                                    stdin=subprocess.PIPE,
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE,
-                                    # shell: necessary on windows to execute
-                                    # ruby files, but doesn't work on linux.
-                                    shell=(os.name == 'nt'))
-            stdout, stderr = proc.communicate(_in.read().encode('utf-8'))
+                stdin.write(_in.read().encode('utf-8'))
+                stdin.seek(0)
+                proc = subprocess.Popen(args,
+                                        stdin=stdin,
+                                        stdout=stdout,
+                                        stderr=stderr,
+                                        # shell: necessary on windows to execute
+                                        # ruby files, but doesn't work on linux.
+                                        shell=(os.name == 'nt'))
+                proc.wait()
+                stderr = proc.stderr
 
-            if proc.returncode != 0:
-                raise FilterError(('sass: subprocess had error: stderr=%s, '+
-                                   'stdout=%s, returncode=%s') % (
-                                                stderr, stdout, proc.returncode))
-            elif stderr:
-                print("node-sass filter has warnings:", stderr)
+                if proc.returncode != 0:
+                    raise FilterError(('sass: subprocess had error: stderr=%s, '+
+                                       'stdout=%s, returncode=%s') % (
+                                                    stderr, stdout, proc.returncode))
+                elif stderr:
+                    print("node-sass filter has warnings:", stderr)
 
-            out.write(stdout.decode('utf-8'))
-        finally:
-            if cd:
-                os.chdir(old_dir)
+                stdout.seek(0)
+                out.write(stdout.decode('utf-8'))
+            finally:
+                if cd:
+                    os.chdir(old_dir)
 
 
 class NodeSCSS(NodeSass):
