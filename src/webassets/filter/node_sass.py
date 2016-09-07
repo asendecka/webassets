@@ -76,24 +76,29 @@ class NodeSass(Sass):
 
                 stdin.write(_in.read().encode('utf-8'))
                 stdin.seek(0)
-                proc = subprocess.Popen(args,
-                                        stdin=stdin,
-                                        stdout=stdout,
-                                        stderr=stderr,
-                                        # shell: necessary on windows to execute
-                                        # ruby files, but doesn't work on linux.
-                                        shell=(os.name == 'nt'))
+                proc = subprocess.Popen(
+                    args,
+                    stdin=stdin,
+                    stdout=stdout,
+                    stderr=stderr,
+                    # shell: necessary on windows to execute
+                    # ruby files, but doesn't work on linux.
+                    shell=(os.name == 'nt')
+                )
                 proc.wait()
-                stderr = proc.stderr
+
+                stdout.seek(0)
+                stderr.seek(0)
 
                 if proc.returncode != 0:
-                    raise FilterError(('sass: subprocess had error: stderr=%s, '+
-                                       'stdout=%s, returncode=%s') % (
-                                                    stderr, stdout, proc.returncode))
+                    raise FilterError(
+                        'sass: subprocess had error: stderr={}, stdout={}, returncode={}'.format(
+                            stderr.read(), stdout.read(), proc.returncode
+                        )
+                    )
                 elif stderr:
                     print("node-sass filter has warnings:", stderr)
 
-                stdout.seek(0)
                 out.write(stdout.read().decode('utf-8'))
             finally:
                 if cd:
